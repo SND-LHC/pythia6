@@ -3198,7 +3198,10 @@ C...Commonblocks.
      &/PYINT1/,/PYINT2/,/PYINT4/,/PYINT5/
 C...Local array.
       DIMENSION VTX(4)
+c   count number of retries do to pyscat infinite loop
+      data nfail/0/
  
+ 55   continue
 C...Optionally let PYEVNW do the whole job.
       IF(MSTP(81).GE.20) THEN
         CALL PYEVNW
@@ -3289,7 +3292,13 @@ C...reconstruct kinematics and colour flow of hard scattering.
           MINT31=MINT(31)
   120     MINT(31)=MINT31
           MINT(51)=0
-          CALL PYSCAT
+          CALL PYSCAT(ifail)
+          if(ifail.gt.0) then
+            nfail=nfail+1
+            print *,'**********PSCAT*************',
+     +      ' in loop: nr of occurrences sofar=',nfail
+            goto 55
+          endif
           IF(MINT(51).EQ.1) GOTO 100
           IPU1=MINT(84)+1
           IPU2=MINT(84)+2
@@ -3672,7 +3681,7 @@ C...reconstruct kinematics and colour flow of hard scattering.
           MINT31=MINT(31)
   120     MINT(31)=MINT31
           MINT(51)=0
-          CALL PYSCAT
+          CALL PYSCAT(ifail)
           IF(MINT(51).EQ.1) GOTO 100
           NPARTD=N
           NFIN=N
@@ -4833,7 +4842,7 @@ C...reconstruct kinematics and colour flow of hard scattering.
         MINT31=MINT(31)
   110   MINT(31)=MINT31
         MINT(51)=0
-        CALL PYSCAT
+        CALL PYSCAT(ifail)
         IF(MINT(51).EQ.1) GOTO 100
         IPU1=MINT(84)+1
         IPU2=MINT(84)+2
@@ -10569,7 +10578,7 @@ C...PYSCAT
 C...Finds outgoing flavours and event type; sets up the kinematics
 C...and colour flow of the hard scattering
  
-      SUBROUTINE PYSCAT
+      SUBROUTINE PYSCAT(ifail)
  
 C...Double precision and integer declarations
       IMPLICIT DOUBLE PRECISION(A-H, O-Z)
@@ -10626,7 +10635,8 @@ C...and UED particle code (5 000 000 + id)
      & 5100012,5100011,5100014,5100013,5100016,5100015, 
      & 5100021,5100022,5100023,5100024/                 
       SAVE VINTSV
- 
+c  protection against looping around 180 
+      ifail=0 
 C...Read out process
       ISUB=MINT(1)
       ISUBSV=ISUB
@@ -10734,6 +10744,7 @@ C...Copy incoming partons to documentation lines
   170 CONTINUE
  
 C...Choose new quark/lepton flavour for relevant annihilation graphs
+      n180=0
       IF(ISUB.EQ.12.OR.ISUB.EQ.53.OR.ISUB.EQ.54.OR.ISUB.EQ.58.OR.
      &ISUB.EQ.314.OR.ISUB.EQ.319.OR.ISUB.EQ.316.OR.
      &(ISUB.GE.135.AND.ISUB.LE.140).OR.ISUB.EQ.382.OR.ISUB.EQ.385) THEN
@@ -10741,6 +10752,7 @@ C...Choose new quark/lepton flavour for relevant annihilation graphs
         IF(ISUB.EQ.58.OR.(ISUB.GE.137.AND.ISUB.LE.140)) IGLGA=22
         CALL PYWIDT(IGLGA,SH,WDTP,WDTE)
   180   RKFL=(WDTE(0,1)+WDTE(0,2)+WDTE(0,4))*PYR(0)
+        n180=n180+1
         DO 190 I=1,MDCY(IGLGA,3)
           KFLF=KFDP(I+MDCY(IGLGA,2)-1,1)
           RKFL=RKFL-(WDTE(I,1)+WDTE(I,2)+WDTE(I,4))
@@ -10749,7 +10761,15 @@ C...Choose new quark/lepton flavour for relevant annihilation graphs
   200   CONTINUE
         IF((ISUB.EQ.53.OR.ISUB.EQ.385.OR.ISUB.EQ.314.OR.ISUB.EQ.319
      &      .OR.ISUB.EQ.316).AND.MINT(2).LE.2) THEN
-          IF(KFLF.GE.4) GOTO 180
+          IF(KFLF.GE.4) then
+            if(n180.gt.100) then
+              ifail=1
+              return
+            else
+              GOTO 180
+            endif
+          endif
+
         ELSEIF((ISUB.EQ.53.OR.ISUB.EQ.385.OR.ISUB.EQ.314.OR.ISUB.EQ.319.
      &       OR.ISUB.EQ.316).AND.MINT(2).LE.4) THEN
           KFLF=4
@@ -81333,7 +81353,7 @@ C*********************************************************************
 C...PDFSET
 C...Dummy routine, to be removed when PDFLIB is to be linked.
  
-      SUBROUTINE PDFSET(PARM,VALUE)
+      SUBROUTINE PDFSETX(PARM,VALUE)
  
 C...Double precision and integer declarations.
       IMPLICIT DOUBLE PRECISION(A-H, O-Z)
@@ -81365,7 +81385,7 @@ C*********************************************************************
 C...STRUCTM
 C...Dummy routine, to be removed when PDFLIB is to be linked.
  
-      SUBROUTINE STRUCTM(XX,QQ,UPV,DNV,USEA,DSEA,STR,CHM,BOT,TOP,GLU)
+      SUBROUTINE STRUCTMX(XX,QQ,UPV,DNV,USEA,DSEA,STR,CHM,BOT,TOP,GLU)
  
 C...Double precision and integer declarations.
       IMPLICIT DOUBLE PRECISION(A-H, O-Z)
@@ -81403,7 +81423,7 @@ C*********************************************************************
 C...STRUCTP
 C...Dummy routine, to be removed when PDFLIB is to be linked.
  
-      SUBROUTINE STRUCTP(XX,QQ2,P2,IP2,UPV,DNV,USEA,DSEA,STR,CHM,
+      SUBROUTINE STRUCTPX(XX,QQ2,P2,IP2,UPV,DNV,USEA,DSEA,STR,CHM,
      &BOT,TOP,GLU)
  
 C...Double precision and integer declarations.

@@ -3,7 +3,7 @@ Cmake_Minimum_Required(VERSION 2.6.0 FATAL_ERROR)
 Project(Pythia6)
 Enable_Language(Fortran)
 
-
+message("make $ENV{PYTHIA6VERSION} for external PDFLIB, remove DUMMY subroutines")
 set(Pythia_FSRCS
 pythia-6.4.28.f
 tpythia6_called_from_cc.F
@@ -25,19 +25,33 @@ EndIf (CMAKE_Fortran_COMPILER MATCHES "pgfortran")
 # create c source
 Execute_Process(COMMAND echo void MAIN() {} OUTPUT_FILE main.c)
 
+
 set(Pythia_CSRCS
 pythia6_common_address.c
 main.c
 )
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-  # using Clang
-  set(CMAKE_SHARED_LINKER_FLAGS
-    "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup -Wl,-no_compact_unwind")
-endif()
-
 Add_Library(pythia6 SHARED ${Pythia_FSRCS} ${Pythia_CSRCS})
-If (CMAKE_Fortran_COMPILER MATCHES "gfortran")
-Target_Link_Libraries(pythia6 gfortran)
-EndIf (CMAKE_Fortran_COMPILER MATCHES "gfortran")
+
+# Check if gfortran library has to specified explicit
+# This is needed so far on Mac OSX and gcc6
+If(CMAKE_SYSTEM_NAME MATCHES Darwin)
+  SET(CMAKE_SHARED_LIBRARY_CREATE_Fortran_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_Fortran_FLAGS} -flat_namespace -single_module -undefined dynamic_lookup")
+
+  Execute_Process(COMMAND gfortran -dumpversion
+                  OUTPUT_VARIABLE _gfortran_version)
+  String(SUBSTRING ${_gfortran_version} 0 1 _gfortran_major_version)
+  If(${_gfortran_major_version} GREATER 5)
+    Execute_Process(COMMAND gfortran -print-file-name=libgfortran.dylib
+                    OUTPUT_VARIABLE _gfortran_path
+                   )
+    Get_Filename_COMPONENT(_gfortran_libdir ${_gfortran_path} DIRECTORY)
+    Message("${_gfortran_libdir}")
+    Target_Link_Libraries(pythia6 gfortran)
+    Link_Directories(${_gfortran_libdir})
+  EndIf()
+EndIf()
+
+
 Install(TARGETS pythia6 DESTINATION LIBRARY DESTINATION lib)
+
